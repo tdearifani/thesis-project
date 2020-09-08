@@ -1,5 +1,5 @@
 % At this stage, data readings with raw and hdr file types from hyperspectral camera results. 
-% The required inputs are dark reference data, light reference data, and file data to run.
+% The required inputs are dark reference data, white reference data, and file data to run.
 
 clear
 close all
