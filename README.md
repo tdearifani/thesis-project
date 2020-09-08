@@ -1,5 +1,5 @@
 # thesis-project
-Containing the final task (thesis) I did with the topic of this project is a smoker tongue detection system with deep learning algorithms using Matlab.
+Containing the final task (thesis) I did with the topic of this project is a smoker tongue detection system with deep learning algorithms using Matlab. The title is Implementation of Deep Learning Modelling on Smoker's Tongue Image Detection System VNIR-Based.
 
 This project is the first project I've done together with my supervisor in drafting each code. This project is about image processing to detect a person is a smoker or not from his or her tongue. 
 
