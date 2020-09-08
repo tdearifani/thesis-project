@@ -1,0 +1,111 @@
+% At this stage, the dataset becomes the input that is then processed for the formation of a classification model and an output in the form of 2 classes will appear.
+% Layers construction can be customized according to the needs of each data
+
+clear
+clc
+
+disp 'Example of Hyperspectral Processing using Matlab Deep Learning'
+disp 'START'
+numFolding = 5;
+
+[file, path]    = uigetfile(pwd,'Select Data Folder');
+filePath        = [path file];
+% filePath     = [pwd '\Tounge\Dataset4.mat'];
+
+load(filePath);
+
+if ~exist('imgHyp3D', 'var')                    % X, Y, Lamba, Sample
+    disp 'imgHyp variable is not exist'
+    return
+elseif ~exist('lblClass', 'var')
+    disp 'targetClass variable is not exist'
+    return
+end
+
+%% lblClass Correction
+uniqueClass     = unique(labelClass);    
+lblClass        = zeros(length(labelClass), 1);
+
+for i=1:length(uniqueClass)
+    %kelasIdx    = strfind(labelClass, uniqueClass{i});
+    %idClass     = find(not(cellfun('isempty', kelasIdx)));
+    idClass    = find(strcmp(labelClass, uniqueClass{i}));
+    switch i
+        case 1
+            lblClass(idClass) = 0;
+        case 2
+            lblClass(idClass) = 1;
+    end
+end
+lblClass = categorical(lblClass);
+
+%% End Correction
+
+imgSize = size(imgHyp3D);
+
+layers = [
+    imageInputLayer([imgSize(1) imgSize(2) imgSize(3)]) % X, Y dan Lamba
+    
+    convolution2dLayer(3,8,'Padding','same')
+    batchNormalizationLayer
+    reluLayer
+    
+    maxPooling2dLayer(2,'Stride',2)
+    
+    convolution2dLayer(3,16,'Padding','same')
+    batchNormalizationLayer
+    reluLayer
+    
+    maxPooling2dLayer(2,'Stride',2)
+    
+    convolution2dLayer(3,32,'Padding','same')
+    batchNormalizationLayer
+    reluLayer
+    
+    fullyConnectedLayer(2)                              % Output 2 kelas (Smoking & Non Smoking)
+    softmaxLayer
+    classificationLayer];
+
+options = trainingOptions('sgdm', ...                   % stochastic gradient descent with momentum
+    'InitialLearnRate',0.01, ...
+    'MaxEpochs',20, ...
+    'Shuffle','every-epoch', ...
+    'ValidationFrequency',30, ...
+    'Verbose',false, ...
+    'Plots','training-progress');
+
+CVO             = cvpartition(labelClass,'k',numFolding);   % Cross Validation 80% Training 20% Testing
+No              = zeros(CVO.NumTestSets,1);
+TrainAccuracy   = zeros(CVO.NumTestSets,1);
+TestingAccuracy = zeros(CVO.NumTestSets,1);
+for i = 1:CVO.NumTestSets
+    No(i)       = i;
+    disp(['Processing ' num2str(i)]);
+    trainID     = CVO.training(1);
+    testID      = CVO.test(1);
+    train_x     = imgHyp3D(:,:,:,trainID);
+    test_x      = imgHyp3D(:,:,:,testID);
+    
+    train_y     = categorical(lblClass(trainID));
+    test_y      = categorical(lblClass(testID));
+    
+    net         = trainNetwork(train_x,train_y,layers,options);
+    
+    [YPred,~]           = classify(net,train_x);
+    TrainAccuracy(i)    = sum(YPred == train_y)/numel(train_y);
+    
+    [YPred,~]           = classify(net,test_x);
+    TestingAccuracy(i)  = sum(YPred == test_y)/numel(test_y);
+end
+
+errorTable = table(No, TrainAccuracy, TestingAccuracy);
+disp('Classification Acuracy')
+disp(errorTable);
+disp(['Classification Training Acuracy Rate ' num2str(mean(TrainAccuracy), '%.2f'), ' ']);
+disp(['Classification Testing Acuracy Rate  ' num2str(mean(TestingAccuracy), '%.2f'), ' ']);
+
+%% plot conf matrix
+plotconfusion(test_y,YPred,'Confusion Matrix Testing');
+
+%% plot analyze network
+analyzeNetwork(net)
