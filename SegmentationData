@@ -1,0 +1,91 @@
+% At this stage, the segmentation of the data to retrieve some Region Of Interest (ROI) in the data file for further research. 
+% Input data for this stage is image correction result
+
+clc
+clear
+close all
+
+% Configuration the ROI
+numberCrop  = 4;   %%%% input number of ROI that you want to take
+widthCrop   = 10;   %%%% input width the square of ROI that you want to take
+heightCrop  = 10;   %%%% input height the square of ROI that you want to take
+
+% Make sure that the image correction results are placed in the same folder as this code folder
+if exist('temporary.mat', 'file')
+    load temporary.mat;
+else
+    [FileName,PathName,~] = uigetfile('*.MAT', 'Pilih file Feature Set', 'MultiSelect', 'off');
+    if isequal(FileName, 0)
+        msgbox('Ok', 'Canceled');
+        return
+    end
+    
+    load([PathName FileName]);
+end
+
+% Visualize the file data with spesific rgb
+rgbBands        = [110,51,34];
+tColor(:,:,1)   = Reflectance(:,:, rgbBands(1));
+tColor(:,:,2)   = Reflectance(:,:, rgbBands(2));
+tColor(:,:,3)   = Reflectance(:,:, rgbBands(3));
+
+tColor          = imadjust(tColor, stretchlim(tColor));
+
+imagesc(tColor);
+
+%%%%%%%%%%%%%%%%%%%%% CHOOSE ROI %%%%%%%%%%%%%%%%%%%%
+[heigtR, widthR, ~] = size(Reflectance);
+
+ 
+shiftCrop   = 0;
+hCrop       = cell(numberCrop,1);
+for iCrop=1:numberCrop
+    hCrop{iCrop}    = imrect(gca, [((.5*widthR)+shiftCrop) (.5*heigtR) widthCrop heightCrop]);
+    shiftCrop       = shiftCrop+widthCrop+10;
+    pT = getPosition(hCrop{iCrop});
+    text(pT(1,1)+15, pT(1,2)+15, num2str(iCrop), 'color', 'w','Tag', ['rectLabel' num2str(iCrop)]);
+    addNewPositionCallback(hCrop{iCrop},@(p) textMove(p,iCrop));
+    fcn = makeConstrainToRectFcn('imrect',get(gca,'XLim'),get(gca,'YLim'));
+    setPositionConstraintFcn(hCrop{iCrop},fcn);
+    setResizable(hCrop{iCrop},0);
+end
+
+disp('Move ROI to the area to be cropped');
+disp('Press Enter in Windows Command when you are done');
+pause;
+
+cropReflectance = cell(size(hCrop,1),1);
+bandSize        = size(Reflectance,3);
+
+for iCrop=1:size(hCrop,1)
+    rect    = getPosition(hCrop{iCrop});
+    cropR   = imcrop(tColor, rect);
+    cropR   = zeros(size(cropR,1), size(cropR,2), bandSize);
+    for i=1:bandSize
+        cropR(:,:,i) = imcrop(Reflectance(:,:,i), rect);
+    end
+    cropReflectance{iCrop} = cropR;
+end
+
+% Give information about the observed data
+% Important for classification and modeling processes
+annotation.object = 'Tongue';                   %% Name of the observed object (Ex: Banana)
+
+% Qualitative Attribute (customized to the needs of data information)
+annotation.class1 = 'Smoker';                   %% Class Name 1 (Smoker | Non-Smoker)
+annotation.class2 = 'Posterior';                %% Class Name 2 (Lateral-A | Lateral-B | Posterior | Anterior) -- these are tongue areas.
+annotation.class3 = 'Man';                      %% Class Name 3 (Man | Woman)
+
+% Quantitative Attribute (customized to the needs of data information)
+annotation.atribut1_Name = 'DS';                %% Attribute Type 1 (Duration of Smoking)
+annotation.atribut2_Name = 'CPD';               %% Attribute Type 2 (Cigarettes Per Day)
+
+annotation.atribut1_Units = 'Years';            %% Attribute Unit 1 (Years)
+annotation.atribut2_Units = 'Cigarettes';       %% Attribute Unit 2 (Cigarettes)
+
+annotation.valAtribut1 = 0 ;                    %% Attribute Value 1 (Number)
+annotation.valAtribut2 = 0 ;                    %% Attribute Value 2 (Number)
+
+
+uisave({'cropReflectance', 'annotation', 'info'}, [info.filename '.mat']);
+disp('Data has been saved');
