@@ -1,0 +1,27 @@
+% At this stage, image correction to eliminate or reduce noise in data files with dark reference data and white reference data
+
+clc
+clear 
+close all
+
+if exist('temporary.mat', 'file')
+    load temporary.mat;
+else
+    msgbox('Error: temporary.mat is not found. Run "Read Data" First', 'Error','error');
+    return;
+end
+
+% perform image correction formula : I = (Iraw-Idark)/(Iwhite-Idark)
+Reflectance     = rdivide((D-DDark),(DWhite-DDark)); 
+
+% correction for NaN pixels 
+Reflectance(isnan(Reflectance)) = 0;
+Reflectance(isinf(Reflectance)) = 0;
+
+% use this code for save the data with temporary file
+save('temporary.mat', 'Reflectance', 'info'); 
+
+% use this code for save the data with spesific name
+% save('Henry.mat', 'Reflectance', 'info');
+
+disp('Done')
