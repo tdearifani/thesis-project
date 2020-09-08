@@ -1,0 +1,93 @@
+% At this stage, the dataset becomes an input that will then be studied by the SVM algorithm for the formation of classification models and producing class output.
+
+close all
+clear
+clc
+
+disp 'Example of Hyperspectral Processing using Matlab SVM using Deep Learning Dataset'
+disp 'START'
+numFolding = 5;
+numPC      = 10; % Number of Principal Components
+
+filePath        = [pwd '\Tounge\Dataset4.mat'];
+load(filePath);
+
+if ~exist('imgHyp3D', 'var')                    % X, Y, Lamba, Sample
+    disp 'imgHyp variable is not exist'
+    return
+elseif ~exist('lblClass', 'var')
+    disp 'targetClass variable is not exist'
+    return
+end
+
+% Check Type of Class
+uniqueClassLbl     = unique(lblClass);
+uniqueClassLabel   = unique(labelClass);
+
+kelasIdx     = cell(size(uniqueClassLbl));
+kelasStr     = cell(size(uniqueClassLbl));
+for i=1:size(uniqueClassLabel,1)  
+    strID           = strcmp(labelClass, uniqueClassLabel{i});
+    kelasIdx{i}     = find(strID==1);
+end
+
+% Spatial Feature Extration
+cropReflectance = mean(imgHyp3D, [1 2]);
+cropReflectance = squeeze(cropReflectance);
+cropReflectance = cropReflectance';
+
+reflectance = cropReflectance;
+CVO         = cvpartition(labelClass,'k',numFolding);
+
+rmsePLSRTr      = zeros(CVO.NumTestSets,1);
+rmsePLSRTe      = zeros(CVO.NumTestSets,1);
+corrCoeffTr     = zeros(CVO.NumTestSets,1);
+corrCoeffTe     = zeros(CVO.NumTestSets,1);
+errSVMTr        = zeros(CVO.NumTestSets,1);
+errSVMTe        = zeros(CVO.NumTestSets,1);
+testNo          = zeros(CVO.NumTestSets,1);
+for i = 1:CVO.NumTestSets
+    testNo(i) = i;
+    trIdx = CVO.training(i);
+    teIdx = CVO.test(i);
+    
+    % Create PCA Model using training Data       
+    [PCAcoeff,~,PCAlatent,PCAtsquared,PCAexplained,PCAmu] = pca(reflectance(trIdx,:),'Economy',false);
+    PCAScoresTr = reflectance(trIdx,:)*PCAcoeff;        % convert from wavelength to features
+    PCAScoresTe = reflectance(teIdx,:)*PCAcoeff;
+    
+    % PCAscore 
+    % row: PCA score for each data, the amount is equal to the amount of data entered
+    % column: Principal Component, ranging from PC1 (the best) to the end (the worst)
+    
+     % Training SVM on Testing Data
+    svmStruct       = fitcecoc(PCAScoresTr(:,1:numPC),labelClass(trIdx));
+    predictedClass  = predict(svmStruct, PCAScoresTr(:,1:numPC));
+    compareClass    = strcmp(predictedClass, labelClass(trIdx));
+    errSVMTr(i)     = 100*(size(compareClass,1)-sum(compareClass))/size(compareClass,1);
+    
+    figure;
+    cm = confusionchart(labelClass(trIdx),predictedClass);
+    cm.ColumnSummary = 'column-normalized';
+    cm.RowSummary = 'row-normalized';
+    cm.Title = 'Classification using Training Data';
+    
+    % Testing SVM
+    predictedClass  = predict(svmStruct, PCAScoresTe(:,1:numPC));
+    compareClass    = strcmp(predictedClass, labelClass(teIdx));
+    errSVMTe(i)     = 100*(size(compareClass,1)-sum(compareClass))/size(compareClass,1);
+    
+    figure;
+    cm = confusionchart(labelClass(teIdx),predictedClass);
+    cm.ColumnSummary = 'column-normalized';
+    cm.RowSummary = 'row-normalized';
+    cm.Title = 'Classification using Testing Data';    
+    
+end
+
+errorTable = table(testNo, errSVMTr, errSVMTe);
+disp(errorTable);
+disp(['Mean Error SVM training ' num2str(mean(errSVMTr), '%.2f'), ' %']);
+disp(['Mean Error SVM testing ' num2str(mean(errSVMTe), '%.2f'), ' %']);
+
+
