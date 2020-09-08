@@ -1,0 +1,81 @@
+% At this stage, ROI results will be combined for dataset formation. 
+% This dataset is the input to be implemented in the classification model algorithm.
+
+clear
+close all
+clc
+
+% add path
+parentpath = cd(cd('..'));
+addpath(genpath([parentpath '\HyperSpectralToolbox']));
+
+disp 'Create Dataset'
+disp 'START'
+disp ''
+
+% currentFolder = pwd;
+selpath = uigetdir(pwd,'Select Data Folder');
+% load(selpath);
+img         = {};
+labelClass  = {};
+listing     = dir(selpath);
+
+for i=3:length(listing)
+    disp(['Processing ' listing(i).name]);
+    filename    = [selpath '\' listing(i).name];
+    iimg        = load(filename);
+    ilabelClass = iimg.annotation.class1;
+    ilabelClass = repmat(ilabelClass, length(iimg.cropReflectance), 1);
+    ilabelClass = cellstr(ilabelClass);
+    iimg        = iimg.cropReflectance;
+    img         = [img; iimg];
+    labelClass  = [labelClass; ilabelClass];
+end
+
+img3D     = img{1,:};
+img2D     = hyperConvert2d(img3D);
+imgHyp2D  = zeros(size(img2D,1), size(img2D,2), length(img));
+imgHyp3D  = zeros(size(img3D,1), size(img3D,2), size(img3D,3), length(img));
+
+for i=1:length(img)
+    img3D             = img{i,:};
+    img2D             = hyperConvert2d(img3D);
+    imgHyp2D(:,:,i)   = img2D;
+    imgHyp3D(:,:,:,i) = img{i,:};
+    fprintf('.%d', i);
+end
+fprintf('\n')
+
+% Check Type of Class
+uniqueClass     = unique(labelClass);                                   
+targetClass     = zeros(length(uniqueClass), length(labelClass));
+
+for i=1:length(uniqueClass)
+    kelasIdx    = strfind(labelClass, uniqueClass{i});
+    idClass     = find(not(cellfun('isempty', kelasIdx)));
+    switch i
+        case 1
+            targetClass(:, idClass) = repmat([1; 0],1,length(idClass));
+        case 2
+            targetClass(:, idClass) = repmat([0; 1],1,length(idClass));
+    end
+end
+
+lblClass     = zeros(length(labelClass), 1);
+for i=1:length(uniqueClass)
+    kelasIdx    = strfind(labelClass, uniqueClass{i});
+    idClass     = find(not(cellfun('isempty', kelasIdx)));
+    switch i
+        case 1
+            lblClass(idClass) = 0;
+        case 2
+            lblClass(idClass) = 1;
+    end
+end
+lblClass = categorical(lblClass);
+
+[filename,path] = uiputfile('*.mat', 'Save Data');
+disp 'Writing Data......'
+save([path filename], 'img', 'imgHyp2D', 'imgHyp3D', 'labelClass', 'targetClass', 'lblClass');
+disp 'DONE'
+
