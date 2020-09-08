@@ -1,0 +1,86 @@
+clear
+close all
+clc
+
+% add path
+parentpath = cd(cd('..'));
+addpath([parentpath '\Envi']);
+
+% delete temporary file
+if exist('temporary.mat', 'file')
+    delete temporary.mat;
+end
+
+%% choose Dark data ((include raw and hdr data))
+folderDark      = uigetdir(pwd,'Pilih Folder untuk Dark Calibration');
+if isequal(folderDark, 0)
+    msgbox('Pembatalan dilakukan','Canceled');
+    return
+end
+idStr           = strfind(folderDark, filesep);
+filenameDark    = folderDark(idStr(end)+1:end);
+disp(['Folder ' filenameDark ' dipilih sebagai Dark Calibration']);
+hdrfileDark     = [folderDark '\capture\' filenameDark '.hdr'];
+datafileDark    = [folderDark '\capture\' filenameDark '.raw'];
+
+if ~exist(hdrfileDark, 'file')
+    msgbox(['Error ' filenameDark '.hdr File Location'], 'Error','error');
+    return;
+end
+if ~exist(datafileDark, 'file')
+    msgbox(['Error ' filenameDark '.raw File Location'], 'Error','error');
+    return;
+end
+parts       = strfind(folderDark, filesep);
+folderNow   = folderDark(1:parts(end));
+
+%% choose White data ((include raw and hdr data))
+folderWhite     = uigetdir(folderNow,'Pilih Folder untuk White Calibration');
+if isequal(folderWhite, 0)
+    msgbox('Pembatalan dilakukan','Canceled');
+    return
+end
+idStr           = strfind(folderWhite, filesep);
+filenameWhite   = folderWhite(idStr(end)+1:end);
+disp(['Folder ' filenameWhite ' dipilih sebagai White Calibration']);
+hdrfileWhite    = [folderWhite '\capture\' filenameWhite '.hdr'];
+datafileWhite   = [folderWhite '\capture\' filenameWhite '.raw'];
+
+if ~exist(hdrfileWhite, 'file')
+    msgbox(['Error ' filenameWhite '.hdr File Location'], 'Error','error');
+    return;
+end
+if ~exist(datafileWhite, 'file')
+    msgbox(['Error ' filenameWhite '.raw File Location'], 'Error','error');
+    return;
+end
+
+%% choose File data ((include raw and hdr data))
+folderRaw       = uigetdir(folderNow,'Pilih Folder untuk Data RAW');
+if isequal(folderRaw,0)
+    msgbox('Pembatalan dilakukan','Canceled');
+    return
+end
+idStr           = strfind(folderRaw, filesep);
+filenameRaw     = folderRaw(idStr(end)+1:end);
+disp(['Folder ' filenameRaw ' dipilih sebagai Image RAW']);
+hdrfileRaw         = [folderRaw '\capture\' filenameRaw '.hdr'];
+datafileRaw        = [folderRaw '\capture\' filenameRaw '.raw'];
+
+if ~exist(hdrfileRaw, 'file')
+    msgbox(['Error ' filenameRaw '.hdr File Location'], 'Error','error');
+    return;
+end
+if ~exist(datafileRaw, 'file')
+    msgbox(['Error ' filenameRaw '.raw File Location'], 'Error','error');
+    return;
+end
+
+% konversi HDR dan Hypercube File ke Matrix
+[DWhite,~]  = enviread(datafileWhite,hdrfileWhite);
+[DDark,~]   = enviread(datafileDark,hdrfileDark);
+[D,info]    = enviread(datafileRaw,hdrfileRaw);
+
+info.filename = filenameRaw;
+
+save('temporary.mat', 'DWhite', 'DDark', 'D', 'info');
